@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 
+import unittest
 from os import path
 
 import numpy as np
@@ -15,10 +16,7 @@ NODE_DTYPE = np.dtype(
         ("count", cltypes.uint),
         ("_pad", cltypes.float),
         ("value", cltypes.float3),
-        ("q0", cltypes.int),
-        ("q1", cltypes.int),
-        ("q2", cltypes.int),
-        ("q3", cltypes.int),
+        ("quarters", cltypes.int, 4),
     ]
 )
 
@@ -47,8 +45,6 @@ def run(max_depth, bbox, points):
     quadtree_g = cl.Buffer(ctx, mem.READ_WRITE, quadtree_np.nbytes)
     shared_g = cl.Buffer(ctx, mem.READ_WRITE | mem.COPY_HOST_PTR, hostbuf=shared_np)
 
-    cl.enqueue_barrier(queue).wait()
-
     ev_sum = prg.run(queue, points_np.shape, (1,), points_g, quadtree_g, shared_g)
 
     cl.enqueue_copy(queue, quadtree_np, quadtree_g)
@@ -56,7 +52,7 @@ def run(max_depth, bbox, points):
 
     spent = (ev_sum.profile.end - ev_sum.profile.start) * 1e-6
 
-    return (quadtree_np[: shared_np[0]["used"]], spent)
+    return quadtree_np[: shared_np[0]["used"]], spent
 
 
 def main():
@@ -67,4 +63,50 @@ def main():
     print(quadtree_np, spent)
 
 
-main()
+class TestQuadtree(unittest.TestCase):
+    @staticmethod
+    def get_values(quadtree):
+        return list(tuple(float(f) for f in tuple(x)[:3]) for x in quadtree["value"])
+
+    def test_single(self):
+        quadtree, _ = run(2, (0, 0, 1, 1), [(0.3, 0.7, 2)])
+
+        self.assertEqual(len(quadtree), 1)
+
+        entry = quadtree[0]
+        self.assertEqual(entry["lock"], 0)
+        self.assertEqual(entry["type"], 1)
+        self.assertEqual(entry["count"], 1)
+        self.assertTrue(
+            np.isclose(TestQuadtree.get_values(quadtree), [(0.3, 0.7, 2.0)]).all()
+        )
+        self.assertTrue(not entry["quarters"].any())
+
+    def test_opposite(self):
+        quadtree, _ = run(4, (0, 0, 1, 1), [(0.3, 0.2, 2), (0.7, 0.8, 1)])
+
+        self.assertEqual(len(quadtree), 3)
+        self.assertTrue((quadtree["lock"] == np.zeros(len(quadtree))).all())
+        self.assertTrue((quadtree["type"] == [(2, 1, 1)]).all())
+        self.assertTrue((quadtree["count"] == [(2, 1, 1)]).all())
+        self.assertTrue(
+            np.isclose(
+                TestQuadtree.get_values(quadtree),
+                [(1.0, 1.0, 3.0), (0.7, 0.8, 1.0), (0.3, 0.2, 2.0)],
+            ).all()
+        )
+
+    def test_all_in(self):
+        quadtree, _ = run(1, (0, 0, 1, 1), [(0.3, 0.2, 2), (0.7, 0.8, 1)])
+
+        self.assertEqual(len(quadtree), 1)
+        self.assertTrue((quadtree["lock"] == np.zeros(len(quadtree))).all())
+        self.assertTrue((quadtree["type"] == [(1,)]).all())
+        self.assertTrue((quadtree["count"] == [(2,)]).all())
+        self.assertTrue(
+            np.isclose(TestQuadtree.get_values(quadtree), [(1.0, 1.0, 3.0)]).all()
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
