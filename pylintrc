@@ -1,0 +1,8 @@
+[MESSAGES CONTROL]
+
+disable = missing-docstring,
+          too-many-locals
+
+[TYPECHECK]
+
+generated-members = cltypes.*
