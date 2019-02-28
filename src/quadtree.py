@@ -34,7 +34,9 @@ def run(max_depth, bbox, points):
     shared_np = np.array([(bbox, 0)], SHARED_DTYPE)
 
     ctx = cl.create_some_context()
-    prg = cl.Program(ctx, QUADTREE_CL).build(["-cl-std=CL2.0"])
+    prg = cl.Program(ctx, QUADTREE_CL).build(
+        ["-D", "MAX_DEPTH={}".format(max_depth), "-cl-std=CL2.0"]
+    )
 
     queue = cl.CommandQueue(
         ctx, properties=cl.command_queue_properties.PROFILING_ENABLE

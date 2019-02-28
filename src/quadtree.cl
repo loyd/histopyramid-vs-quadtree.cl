@@ -3,7 +3,7 @@
 #define info2(msg, a, b) printf("%d: " msg "\n", get_global_id(0), (a), (b))
 #define info3(msg, a, b, c) printf("%d: " msg "\n", get_global_id(0), (a), (b), (c))
 #define info4(msg, a, b, c, d) printf("%d: " msg "\n", get_global_id(0), (a), (b), (c), (d))
-#define assert(x) do { if (!(x)) info("ASSERT %s", #x) } while (false)
+#define assert(x) do { if (!(x)) info1("ASSERT %s", #x); } while (false)
 
 typedef float3 point_t;
 
@@ -106,18 +106,10 @@ void insert(nodeptr_t restrict quadtree, point_t point, shared_t *restrict share
         alloc_node(quadtree, shared);
     }
 
-    int n = 10;
-
-    for (;;) {
-        if (--n == 0) {
-            info2("TOO DEEPLY %v2f %v2f", shape, origin);
-            unlock(node);
-            return;
-        }
-
+    for (uint level = 0; level < MAX_DEPTH; ++level) {
         info4(">> %.2v2f %.2v2f %d %d", origin, shape, rel(node), node->type);
 
-        if (node->type == LEAF) {
+        if (node->type == LEAF && level < MAX_DEPTH - 1) {
             extra = node->value;
             has_extra = true;
         }
@@ -127,7 +119,13 @@ void insert(nodeptr_t restrict quadtree, point_t point, shared_t *restrict share
 
         if (has_extra) {
             node->type = BOX;
-        } else if (node->type == EMPTY) {
+        } else if (node->type != BOX) {
+            assert(node->type == EMPTY || level == MAX_DEPTH - 1);
+
+            if (level == MAX_DEPTH - 1) {
+                info("TOO DEEPLY");
+            }
+
             info3("placed %.2v2f %.2v2f %.2v2f", point, origin, shape);
             node->type = LEAF;
 
@@ -167,6 +165,8 @@ void insert(nodeptr_t restrict quadtree, point_t point, shared_t *restrict share
         shape *= .5f;
         origin += .5f * convert_float2(dir) * shape;
     }
+
+    assert(0 && "UNREACHABLE");
 }
 
 kernel void run(
@@ -174,8 +174,8 @@ kernel void run(
     global node_t *restrict quadtree,
     global shared_t *restrict shared
 ) {
-    printf("RUN GID=%d LID=%d GR=%d BBOX=%.2v4f\n",
-            get_global_id(0), get_local_id(0), get_group_id(0), shared->bbox);
+    printf("RUN GID=%d LID=%d GR=%d BBOX=%.2v4f MD=%d\n",
+            get_global_id(0), get_local_id(0), get_group_id(0), shared->bbox, MAX_DEPTH);
     int gid = get_global_id(0);
     insert(quadtree, points[gid], shared);
 }
