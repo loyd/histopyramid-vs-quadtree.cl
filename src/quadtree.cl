@@ -1,9 +1,16 @@
-#define info(msg) printf("%d: " msg "\n", get_global_id(0))
-#define info1(msg, a) printf("%d: " msg "\n", get_global_id(0), (a))
-#define info2(msg, a, b) printf("%d: " msg "\n", get_global_id(0), (a), (b))
-#define info3(msg, a, b, c) printf("%d: " msg "\n", get_global_id(0), (a), (b), (c))
-#define info4(msg, a, b, c, d) printf("%d: " msg "\n", get_global_id(0), (a), (b), (c), (d))
-#define assert(x) do { if (!(x)) info1("ASSERT %s", #x); } while (false)
+#define info(msg)
+#define info1(msg, a)
+#define info2(msg, a,b)
+#define info3(msg, a,b,c)
+#define info4(msg, a,b,c,d)
+#define assert(x)
+
+/*#define info(msg) printf("%d: " msg "\n", get_global_id(0))*/
+/*#define info1(msg, a) printf("%d: " msg "\n", get_global_id(0), (a))*/
+/*#define info2(msg, a, b) printf("%d: " msg "\n", get_global_id(0), (a), (b))*/
+/*#define info3(msg, a, b, c) printf("%d: " msg "\n", get_global_id(0), (a), (b), (c))*/
+/*#define info4(msg, a, b, c, d) printf("%d: " msg "\n", get_global_id(0), (a), (b), (c), (d))*/
+/*#define assert(x) do { if (!(x)) info1("ASSERT %s", #x); } while (false)*/
 
 typedef float3 point_t;
 
@@ -175,8 +182,8 @@ kernel void run(
     global node_t *restrict quadtree,
     global shared_t *restrict shared
 ) {
-    printf("RUN GID=%d LID=%d GR=%d BBOX=%.2v4f MD=%d\n",
-            get_global_id(0), get_local_id(0), get_group_id(0), shared->bbox, MAX_DEPTH);
+    /*printf("RUN GID=%d LID=%d GR=%d BBOX=%.2v4f MD=%d\n",*/
+            /*get_global_id(0), get_local_id(0), get_group_id(0), shared->bbox, MAX_DEPTH);*/
     int gid = get_global_id(0);
     insert(quadtree, points[gid], shared);
 }
