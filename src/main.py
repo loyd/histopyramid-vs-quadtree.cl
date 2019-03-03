@@ -1,5 +1,7 @@
 from __future__ import absolute_import
 
+import argparse
+
 import numpy as np
 
 import hystopyramid
@@ -22,7 +24,7 @@ def fmt(nanos):
 
 
 def inspect(events, verbose):
-    rel = lambda x: fmt(x - events[0].profile.queued)
+    rel = lambda x: x - events[0].profile.queued
     spent_net = 0
 
     if verbose:
@@ -32,13 +34,13 @@ def inspect(events, verbose):
     for event in events:
         if verbose:
             print(
-                "%f\t%s\t%s\t%s\t%s"
+                "%s\t%s\t%s\t%s\t%s"
                 % (
                     fmt(rel(event.profile.queued)),
                     fmt(rel(event.profile.submit)),
                     fmt(rel(event.profile.start)),
                     fmt(rel(event.profile.end)),
-                    fmt((event.profile.end - event.profile.start)),
+                    fmt(event.profile.end - event.profile.start),
                 )
             )
 
@@ -60,41 +62,68 @@ def run_once(algo, depth, npoints, ntimes, warmup, verbose):
     return inspect(events, verbose)
 
 
-def run_through_npoints(depth, npoints_r, ntimes, warmup, include_quadtree):
-    if include_quadtree:
-        print("Depth\tPoints\tH net\tH total\tQ net\tQ total")
-    else:
-        print("Depth\tPoints\tH net\tH total")
+def run_through_npoints(
+    depth, npoints_r, ntimes, warmup, run_hystopyramid, run_quadtree
+):
+    header = "Depth\tPoints"
 
-    run_grid(range(depth, depth + 1), npoints_r, ntimes, warmup, include_quadtree)
+    if run_hystopyramid:
+        header += "\tH net\tH total"
+
+    if run_quadtree:
+        header += "\tQ net\tQ total"
+
+    print(header)
+
+    run_grid(
+        range(depth, depth + 1),
+        npoints_r,
+        ntimes,
+        warmup,
+        run_hystopyramid,
+        run_quadtree,
+    )
 
 
-def run_through_depth(npoints, depth_r, ntimes, warmup, include_quadtree):
-    if include_quadtree:
-        print("Depth\tPoints\tH net\tH total\tQ net\tQ total")
-    else:
-        print("Depth\tPoints\tH net\tH total")
+def run_through_depth(npoints, depth_r, ntimes, warmup, run_hystopyramid, run_quadtree):
+    header = "Depth\tPoints"
 
-    run_grid(depth_r, range(npoints, npoints + 1), ntimes, warmup, include_quadtree)
+    if run_hystopyramid:
+        header += "\tH net\tH total"
+
+    if run_quadtree:
+        header += "\tQ net\tQ total"
+
+    print(header)
+
+    run_grid(
+        depth_r,
+        range(npoints, npoints + 1),
+        ntimes,
+        warmup,
+        run_hystopyramid,
+        run_quadtree,
+    )
 
 
-def run_grid(depth_r, npoints_r, ntimes, warmup, include_quadtree):
+def run_grid(depth_r, npoints_r, ntimes, warmup, run_hystopyramid, run_quadtree):
     for depth in depth_r:
         for npoints in npoints_r:
-            hp_spent_net, hp_spent_total = run_once(
-                hystopyramid, depth, npoints, ntimes, warmup, False
-            )
-            hp_spent_net = hp_spent_net / (ntimes - warmup)
-            hp_spent_total = hp_spent_total / (ntimes - warmup)
+            if run_hystopyramid:
+                hp_spent_net, hp_spent_total = run_once(
+                    hystopyramid, depth, npoints, ntimes, warmup, False
+                )
+                hp_spent_net = hp_spent_net / (ntimes - warmup)
+                hp_spent_total = hp_spent_total / (ntimes - warmup)
 
-            if include_quadtree:
+            if run_quadtree:
                 qt_spent_net, qt_spent_total = run_once(
                     quadtree, depth, npoints, ntimes, warmup, False
                 )
                 qt_spent_net = qt_spent_net / (ntimes - warmup)
                 qt_spent_total = qt_spent_total / (ntimes - warmup)
 
-            if include_quadtree:
+            if run_hystopyramid and run_quadtree:
                 print(
                     "%d\t%d\t%s\t%s\t%s\t%s"
                     % (
@@ -106,28 +135,94 @@ def run_grid(depth_r, npoints_r, ntimes, warmup, include_quadtree):
                         fmt(qt_spent_total),
                     )
                 )
-            else:
+            elif run_hystopyramid:
                 print(
                     "%d\t%d\t%s\t%s"
                     % (depth, npoints, fmt(hp_spent_net), fmt(hp_spent_total))
                 )
+            else:
+                print(
+                    "%d\t%d\t%s\t%s"
+                    % (depth, npoints, fmt(qt_spent_net), fmt(qt_spent_total))
+                )
 
 
-def run_sample(algo, depth, npoints, warmup, ntimes):
-    print(
-        "Running %s: depth=%d points=%d iters=%d"
-        % (algo.__name__, depth, npoints, ntimes)
-    )
+def run_sample(depth, npoints, ntimes, warmup, run_hystopyramid, run_quadtree):
+    if run_hystopyramid:
+        print("## Hystopyramid")
+        spent_net, spent_total = run_once(
+            hystopyramid, depth, npoints, ntimes, warmup, True
+        )
+        print("H spent net:   %s ms" % fmt(spent_net))
+        print("H spent total: %s ms" % fmt(spent_total))
 
-    spent_net, spent_total = run_once(algo, depth, npoints, ntimes, warmup, True)
+    if run_hystopyramid and run_quadtree:
+        print("\n")
 
-    print("Spent net:   %s ms" % fmt(spent_net))
-    print("Spent total: %s ms" % fmt(spent_total))
+    if run_quadtree:
+        print("## Quadtree")
+        spent_net, spent_total = run_once(
+            quadtree, depth, npoints, ntimes, warmup, True
+        )
+        print("Q spent net:   %s ms" % fmt(spent_net))
+        print("Q spent total: %s ms" % fmt(spent_total))
+
+
+def parse_var(var):
+    try:
+        parts = [int(part) for part in var.split(":")]
+
+        if len(parts) == 1:
+            return parts[0]
+
+        start = parts[0]
+        end = parts[1]
+        step = parts[2] if len(parts) > 2 else 100
+
+        if start > end or step < 1:
+            return None
+
+        return range(start, end + 1, step)
+    except:
+        return None
 
 
 def main():
-    run_through_npoints(8, range(10000, 150000, 25000), 10, 3, False)
-    # run_through_depth(100000, range(3, 14), 10, 3, False)
+    parser = argparse.ArgumentParser(description="Compare quadtree and hystopyramid")
+
+    parser.add_argument("--quadtree", "-q", action="store_true")
+    parser.add_argument("--hystopyramid", "-p", action="store_true")
+    parser.add_argument("--depth", "-d", type=str, required=True)
+    parser.add_argument("--points", "-n", type=str, required=True)
+    parser.add_argument("--iters", "-i", type=int, default=10)
+    parser.add_argument("--warmup", "-w", type=int, default=3)
+
+    args = parser.parse_args()
+
+    depth = parse_var(args.depth)
+    points = parse_var(args.points)
+
+    assert args.quadtree or args.hystopyramid, "You must add -q or/and -h"
+    assert depth, "Depth must be scalar or valid range"
+    assert points, "Point count must be scalar or valid range"
+    assert not (
+        isinstance(depth, range) and isinstance(points, range)
+    ), "Only one of depth and point count can be range"
+    assert args.iters > 0, "Iteration count must be positive"
+    assert args.warmup > 0, "Warmup count must be positive"
+
+    if isinstance(depth, range):
+        run_through_depth(
+            points, depth, args.iters, args.warmup, args.hystopyramid, args.quadtree
+        )
+    elif isinstance(points, range):
+        run_through_npoints(
+            depth, points, args.iters, args.warmup, args.hystopyramid, args.quadtree
+        )
+    else:
+        run_sample(
+            depth, points, args.iters, args.warmup, args.hystopyramid, args.quadtree
+        )
 
 
 if __name__ == "__main__":
