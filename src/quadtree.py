@@ -107,6 +107,20 @@ class TestQuadtree(unittest.TestCase):
             np.isclose(TestQuadtree.get_values(quadtree), [(1.0, 1.0, 3.0)]).all()
         )
 
+    def test_random(self):
+        points = np.random.rand(100, 3)
+
+        quadtree, _ = run(4, (0, 0, 1, 1), points)
+
+        top = quadtree[0]
+
+        self.assertEqual(top["count"], 100)
+
+        lhs = tuple(quadtree[0]["value"])[:3]
+        rhs = tuple(points.sum(0))
+
+        self.assertTrue(np.allclose(lhs, rhs))
+
 
 if __name__ == "__main__":
     unittest.main()
