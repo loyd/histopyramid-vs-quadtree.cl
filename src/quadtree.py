@@ -7,6 +7,8 @@ import numpy as np
 import pyopencl as cl
 from pyopencl import cltypes
 
+DIRNAME = path.abspath(path.dirname(__file__))
+
 SHARED_DTYPE = np.dtype([("bbox", cltypes.float4), ("used", cltypes.int)])
 
 NODE_DTYPE = np.dtype(
@@ -20,7 +22,7 @@ NODE_DTYPE = np.dtype(
     ]
 )
 
-with open(path.join(path.abspath(path.dirname(__file__)), "quadtree.cl"), "r") as file:
+with open(path.join(DIRNAME, "quadtree.cl"), "r") as file:
     QUADTREE_CL = file.read()
 
 
