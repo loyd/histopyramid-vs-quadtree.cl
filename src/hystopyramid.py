@@ -40,7 +40,7 @@ def make_levels(depth, pyramid_np, pyramid_g):
     return levels
 
 
-def run(depth, bbox, points, ntimes=2):
+def run(depth, bbox, points, ntimes=2, warmup=1):
     grid_size = 2 ** (depth - 1)
     pyramid_ncells = int((4 ** depth - 1) / 3)
     pyramid_nbytes = CELL_NBYTES * pyramid_ncells
@@ -66,7 +66,7 @@ def run(depth, bbox, points, ntimes=2):
 
     events = []
 
-    for _ in range(ntimes):
+    for i in range(ntimes):
         cl.enqueue_fill_buffer(queue, pyramid_g, cltypes.float(0), 0, pyramid_nbytes)
 
         ev_grid = make_grid_krn(
@@ -79,7 +79,8 @@ def run(depth, bbox, points, ntimes=2):
             levels[-1][1],
         )
 
-        events.append(ev_grid)
+        if i >= warmup:
+            events.append(ev_grid)
 
         for lvl in range(len(levels) - 1, 0, -1):
             top_g = levels[lvl][1]
@@ -88,31 +89,10 @@ def run(depth, bbox, points, ntimes=2):
             ev_lvl = make_level_krn(queue, (size, size), None, top_g, cur_g)
             events.append(ev_lvl)
 
-        queue.finish()
-
     cl.enqueue_copy(queue, pyramid_np, pyramid_g)
+    queue.finish()
 
-    # rel = lambda x: (x - events[0].profile.start) * 1e-6
-    # pure_spent = 0
-    # print("QUEUE SUB START END SPENT")
-    # for ev in events:
-    # print(
-    # "{:.2f} {:.2f} {:.2f} {:.2f} {:.2f}".format(
-    # rel(ev.profile.queued),
-    # rel(ev.profile.submit),
-    # rel(ev.profile.start),
-    # rel(ev.profile.end),
-    # (ev.profile.end - ev.profile.start) * 1e-6,
-    # )
-    # )
-
-    # pure_spent += (ev.profile.end - ev.profile.start) * 1e-6
-
-    spent = (events[-1].profile.end - events[0].profile.start) * 1e-6
-
-    # print("pure: %f\nspent: %f" % (pure_spent, spent))
-
-    return [lvl[0] for lvl in levels], spent
+    return [lvl[0] for lvl in levels], events
 
 
 class TestHystopyramid(unittest.TestCase):
@@ -160,23 +140,5 @@ class TestHystopyramid(unittest.TestCase):
         self.assertTrue(np.allclose(lhs, rhs))
 
 
-def main():
-    # points = [(0.1, 0.1, 1.0), (0.9, 0.9, 1.0), (0.6, 0.6, 1.0), (0.2, 0.2, 1.0)]
-
-    points = np.random.rand(100, 3)
-
-    (levels, spent) = run(4, (0, 0, 1, 1), points, 10)
-
-    # for i, level in enumerate(levels):
-    # np.set_printoptions(linewidth=20 * (2 ** i))
-
-    # print("~~~~~~~~~~~~")
-    # print(level)
-
-    # np.set_printoptions(linewidth=75)
-    print(spent)
-
-
 if __name__ == "__main__":
     unittest.main()
-    # main()
