@@ -48,7 +48,7 @@ def run(depth, bbox, points, ntimes=2, warmup=1):
     points_np = np.array([cltypes.make_float3(*p) for p in points], cltypes.float3)
     pyramid_np = np.zeros(pyramid_ncells, cltypes.float4)
 
-    ctx = cl.create_some_context()
+    ctx = cl.create_some_context(False)
     prg = cl.Program(ctx, HYSTOPYRAMID_CL).build(["-cl-std=CL2.0"])
 
     make_grid_krn = prg.make_grid

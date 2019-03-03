@@ -33,7 +33,7 @@ def run(max_depth, bbox, points, ntimes=2, warmup=1):
     quadtree_np = np.zeros(quadtree_max_nodes, NODE_DTYPE)
     shared_np = np.array([(bbox, 0)], SHARED_DTYPE)
 
-    ctx = cl.create_some_context()
+    ctx = cl.create_some_context(False)
     prg = cl.Program(ctx, QUADTREE_CL).build(
         ["-D", "MAX_DEPTH={}".format(max_depth), "-cl-std=CL2.0"]
     )
