@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 import argparse
+import textwrap
 
 import numpy as np
 
@@ -188,14 +189,30 @@ def parse_var(var):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Compare quadtree and hystopyramid")
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=textwrap.dedent(
+            """\
+            Comparison between quadtrees and hystopyramids
+            ----------------------------------------------
+            Run and show details:
+                %(prog)s -q -h -d 6 -n 5000
 
-    parser.add_argument("--quadtree", "-q", action="store_true")
-    parser.add_argument("--hystopyramid", "-p", action="store_true")
-    parser.add_argument("--depth", "-d", type=str, required=True)
-    parser.add_argument("--points", "-n", type=str, required=True)
-    parser.add_argument("--iters", "-i", type=int, default=10)
-    parser.add_argument("--warmup", "-w", type=int, default=3)
+            Run through many depths:
+                %(prog)s -q -h -d 6:10:2 -n 5000
+
+            Run through many point counts:
+                %(prog)s -q -h -d 8 -n 1000:50000:10000
+        """
+        ),
+    )
+
+    parser.add_argument("-q", "--quadtree", action="store_true")
+    parser.add_argument("-p", "--hystopyramid", action="store_true")
+    parser.add_argument("-d", "--depth", type=str, required=True)
+    parser.add_argument("-n", "--points", type=str, required=True)
+    parser.add_argument("-i", "--iters", type=int, default=10)
+    parser.add_argument("-w", "--warmup", type=int, default=3)
 
     args = parser.parse_args()
 
