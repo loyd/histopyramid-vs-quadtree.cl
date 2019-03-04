@@ -2,7 +2,9 @@
 
 disable = missing-docstring,
           too-many-locals,
-          too-many-arguments
+          too-many-arguments,
+          ungrouped-imports,
+          bad-continuation
 
 [TYPECHECK]
 

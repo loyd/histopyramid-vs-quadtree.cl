@@ -183,7 +183,7 @@ def parse_var(var):
             return None
 
         return range(start, end + 1, step)
-    except:
+    except:  # pylint: disable=bare-except
         return None
 
 
