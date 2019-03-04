@@ -137,7 +137,7 @@ class TestHystopyramid(unittest.TestCase):
         lhs = tuple(pyramid[0][0])
         rhs = (*points.sum(0), 100.0)
 
-        self.assertTrue(np.allclose(lhs, rhs))
+        assert_allclose(lhs, rhs, 1e-3)
 
 
 if __name__ == "__main__":
