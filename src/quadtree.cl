@@ -1,17 +1,3 @@
-#define info(msg)
-#define info1(msg, a)
-#define info2(msg, a,b)
-#define info3(msg, a,b,c)
-#define info4(msg, a,b,c,d)
-#define assert(x)
-
-/*#define info(msg) printf("%d: " msg "\n", get_global_id(0))*/
-/*#define info1(msg, a) printf("%d: " msg "\n", get_global_id(0), (a))*/
-/*#define info2(msg, a, b) printf("%d: " msg "\n", get_global_id(0), (a), (b))*/
-/*#define info3(msg, a, b, c) printf("%d: " msg "\n", get_global_id(0), (a), (b), (c))*/
-/*#define info4(msg, a, b, c, d) printf("%d: " msg "\n", get_global_id(0), (a), (b), (c), (d))*/
-/*#define assert(x) do { if (!(x)) info1("ASSERT %s", #x); } while (false)*/
-
 typedef float3 point_t;
 
 typedef struct {
@@ -63,8 +49,6 @@ uint alloc_node(nodeptr_t restrict quadtree, shared_t *restrict shared, int lock
     node->value = (point_t)(0.);
     node->quarters[0] = node->quarters[1] = node->quarters[2] = node->quarters[3] = 0;
 
-    info1("alloc %d", idx);
-
     return idx;
 }
 
@@ -72,31 +56,12 @@ bool initial_stage(shared_t *shared) {
     return atomic_load(&shared->used) == 0;
 }
 
-static nodeptr_t first = NULL;
-#define rel(n) (n - first)
-
 void lock(nodeptr_t node) {
-    if (first == NULL) {
-        first = node;
-    }
-
-    info1("locking %d", rel(node));
-
-    int n = 100000;
-
-    while (atomic_exchange(&node->lock, LOCKED) == LOCKED) {
-        if (--n == 0) {
-            info1("LOCK FAILED %d", rel(node));
-            return;
-        }
-    }
-
-    info1("locked %d", rel(node));
+    while (atomic_exchange(&node->lock, LOCKED) == LOCKED) {}
 }
 
 void unlock(nodeptr_t node) {
     atomic_store(&node->lock, UNLOCKED);
-    info1("unlocked %d", rel(node));
 }
 
 void insert(nodeptr_t restrict quadtree, point_t point, shared_t *restrict shared) {
@@ -115,8 +80,6 @@ void insert(nodeptr_t restrict quadtree, point_t point, shared_t *restrict share
     }
 
     for (uint level = 0; level < MAX_DEPTH - 1; ++level) {
-        info4(">> %.2v2f %.2v2f %d %d", origin, shape, rel(node), node->type);
-
         if (node->type == LEAF) {
             extra = node->value;
             has_extra = true;
@@ -133,14 +96,11 @@ void insert(nodeptr_t restrict quadtree, point_t point, shared_t *restrict share
         }
 
         if (node->type == EMPTY) {
-            info3("placed %.2v2f %.2v2f %.2v2f", point, origin, shape);
             node->type = LEAF;
 
             unlock(node);
             return;
         }
-
-        assert(node->type == BOX);
 
         int2 cmp = -isgreater(point.xy, origin);
         uint qno = cmp.x << 1 | cmp.y;
@@ -192,8 +152,6 @@ kernel void run(
     global node_t *restrict quadtree,
     global shared_t *restrict shared
 ) {
-    /*printf("RUN GID=%d LID=%d GR=%d BBOX=%.2v4f MD=%d\n",*/
-            /*get_global_id(0), get_local_id(0), get_group_id(0), shared->bbox, MAX_DEPTH);*/
     int gid = get_global_id(0);
     insert(quadtree, points[gid], shared);
 }
