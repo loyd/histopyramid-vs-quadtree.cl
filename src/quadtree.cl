@@ -114,32 +114,33 @@ void insert(nodeptr_t restrict quadtree, point_t point, shared_t *restrict share
         alloc_node(quadtree, shared, LOCKED);
     }
 
-    for (uint level = 0; level < MAX_DEPTH; ++level) {
+    for (uint level = 0; level < MAX_DEPTH - 1; ++level) {
         info4(">> %.2v2f %.2v2f %d %d", origin, shape, rel(node), node->type);
 
-        if (node->type == LEAF && level < MAX_DEPTH - 1) {
+        if (node->type == LEAF) {
             extra = node->value;
             has_extra = true;
+            node->type = BOX;
         }
 
         ++node->count;
         node->value += point;
 
-        if (has_extra) {
+        if (node->type != BOX && has_extra) {
+            ++node->count;
+            node->value += extra;
             node->type = BOX;
-        } else if (node->type != BOX) {
-            assert(node->type == EMPTY || level == MAX_DEPTH - 1);
+        }
 
-            if (level == MAX_DEPTH - 1) {
-                info("TOO DEEPLY");
-            }
-
+        if (node->type == EMPTY) {
             info3("placed %.2v2f %.2v2f %.2v2f", point, origin, shape);
             node->type = LEAF;
 
             unlock(node);
             return;
         }
+
+        assert(node->type == BOX);
 
         int2 cmp = -isgreater(point.xy, origin);
         uint qno = cmp.x << 1 | cmp.y;
@@ -174,7 +175,16 @@ void insert(nodeptr_t restrict quadtree, point_t point, shared_t *restrict share
         origin += .5f * convert_float2(dir) * shape;
     }
 
-    assert(0 && "UNREACHABLE");
+    ++node->count;
+    node->value += point;
+    node->type = LEAF;
+
+    if (has_extra) {
+        ++node->count;
+        node->value += extra;
+    }
+
+    unlock(node);
 }
 
 kernel void run(
