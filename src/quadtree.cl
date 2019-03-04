@@ -1,10 +1,5 @@
 typedef float3 point_t;
 
-typedef struct {
-    float4 bbox;
-    atomic_int used;
-} shared_t;
-
 typedef enum {
     EMPTY = 0,
     LEAF,
@@ -39,8 +34,8 @@ typedef struct {
 
 typedef volatile node_t *nodeptr_t;
 
-uint alloc_node(nodeptr_t restrict quadtree, shared_t *restrict shared, int lock) {
-    uint idx = atomic_fetch_add(&shared->used, 1);
+uint alloc_node(nodeptr_t restrict quadtree, atomic_int *restrict next_free, int lock) {
+    uint idx = atomic_fetch_add(next_free, 1);
 
     nodeptr_t node = quadtree + idx;
     atomic_store(&node->lock, lock);
@@ -52,20 +47,25 @@ uint alloc_node(nodeptr_t restrict quadtree, shared_t *restrict shared, int lock
     return idx;
 }
 
-bool initial_stage(shared_t *shared) {
-    return atomic_load(&shared->used) == 0;
+inline bool initial_stage(atomic_int *next_free) {
+    return atomic_load(next_free) == 0;
 }
 
-void lock(nodeptr_t node) {
+inline void lock(nodeptr_t node) {
     while (atomic_exchange(&node->lock, LOCKED) == LOCKED) {}
 }
 
-void unlock(nodeptr_t node) {
+inline void unlock(nodeptr_t node) {
     atomic_store(&node->lock, UNLOCKED);
 }
 
-void insert(nodeptr_t restrict quadtree, point_t point, shared_t *restrict shared) {
-    float4 bbox = shared->bbox;
+void insert(
+    float4 bbox,
+    uint max_depth,
+    nodeptr_t restrict quadtree,
+    point_t point,
+    atomic_int *restrict next_free
+) {
     float2 shape = bbox.zw - bbox.xy;
     float2 origin = .5f * (bbox.xy + shape);
 
@@ -75,11 +75,11 @@ void insert(nodeptr_t restrict quadtree, point_t point, shared_t *restrict share
 
     lock(node);
 
-    if (initial_stage(shared)) {
-        alloc_node(quadtree, shared, LOCKED);
+    if (initial_stage(next_free)) {
+        alloc_node(quadtree, next_free, LOCKED);
     }
 
-    for (uint level = 0; level < MAX_DEPTH - 1; ++level) {
+    for (uint level = 0; level < max_depth - 1; ++level) {
         if (node->type == LEAF) {
             extra = node->value;
             has_extra = true;
@@ -106,7 +106,7 @@ void insert(nodeptr_t restrict quadtree, point_t point, shared_t *restrict share
         uint qno = cmp.x << 1 | cmp.y;
 
         if (!node->quarters[qno]) {
-            node->quarters[qno] = alloc_node(quadtree, shared, UNLOCKED);
+            node->quarters[qno] = alloc_node(quadtree, next_free, UNLOCKED);
         }
 
         if (has_extra) {
@@ -114,7 +114,7 @@ void insert(nodeptr_t restrict quadtree, point_t point, shared_t *restrict share
             uint extra_qno = cmp.x << 1 | cmp.y;
 
             if (extra_qno != qno) {
-                uint quarter = node->quarters[extra_qno] = alloc_node(quadtree, shared, UNLOCKED);
+                uint quarter = node->quarters[extra_qno] = alloc_node(quadtree, next_free, UNLOCKED);
                 nodeptr_t inner = quadtree + quarter;
                 inner->type = LEAF;
                 inner->count = 1;
@@ -148,10 +148,12 @@ void insert(nodeptr_t restrict quadtree, point_t point, shared_t *restrict share
 }
 
 kernel void run(
+    float4 bbox,
+    uint max_depth,
     global const point_t *restrict points,
     global node_t *restrict quadtree,
-    global shared_t *restrict shared
+    global atomic_int *restrict next_free
 ) {
     int gid = get_global_id(0);
-    insert(quadtree, points[gid], shared);
+    insert(bbox, max_depth, quadtree, points[gid], next_free);
 }

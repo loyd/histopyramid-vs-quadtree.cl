@@ -10,8 +10,6 @@ from pyopencl import cltypes
 
 DIRNAME = path.abspath(path.dirname(__file__))
 
-SHARED_DTYPE = np.dtype([("bbox", cltypes.float4), ("used", cltypes.int)])
-
 NODE_DTYPE = np.dtype(
     [
         ("lock", cltypes.int),
@@ -32,12 +30,12 @@ def run(max_depth, bbox, points, ntimes=2, warmup=1):
 
     points_np = np.array([cltypes.make_float3(*p) for p in points], cltypes.float3)
     quadtree_np = np.zeros(quadtree_max_nodes, NODE_DTYPE)
-    shared_np = np.array([(bbox, 0)], SHARED_DTYPE)
+    next_free_np = np.zeros(1, cltypes.int)
 
     ctx = cl.create_some_context(False)
-    prg = cl.Program(ctx, QUADTREE_CL).build(
-        ["-D", "MAX_DEPTH={}".format(max_depth), "-cl-std=CL2.0"]
-    )
+    prg = cl.Program(ctx, QUADTREE_CL).build(["-cl-std=CL2.0"])
+
+    run_krn = prg.run
 
     queue = cl.CommandQueue(
         ctx, properties=cl.command_queue_properties.PROFILING_ENABLE
@@ -46,22 +44,33 @@ def run(max_depth, bbox, points, ntimes=2, warmup=1):
     mem = cl.mem_flags
     points_g = cl.Buffer(ctx, mem.READ_ONLY | mem.COPY_HOST_PTR, hostbuf=points_np)
     quadtree_g = cl.Buffer(ctx, mem.READ_WRITE, quadtree_np.nbytes)
-    shared_g = cl.Buffer(ctx, mem.READ_WRITE | mem.COPY_HOST_PTR, hostbuf=shared_np)
+    next_free_g = cl.Buffer(
+        ctx, mem.READ_WRITE | mem.COPY_HOST_PTR, hostbuf=next_free_np
+    )
 
     events = []
 
     for i in range(ntimes):
-        cl.enqueue_copy(queue, shared_g, shared_np)
-        ev_run = prg.run(queue, points_np.shape, (1,), points_g, quadtree_g, shared_g)
+        cl.enqueue_copy(queue, next_free_g, next_free_np)
+        ev_run = run_krn(
+            queue,
+            points_np.shape,
+            (1,),
+            cltypes.make_float4(*bbox),
+            cltypes.uint(max_depth),
+            points_g,
+            quadtree_g,
+            next_free_g,
+        )
 
         if i >= warmup:
             events.append(ev_run)
 
     cl.enqueue_copy(queue, quadtree_np, quadtree_g)
-    cl.enqueue_copy(queue, shared_np, shared_g)
+    cl.enqueue_copy(queue, next_free_np, next_free_g)
     queue.finish()
 
-    return quadtree_np[: shared_np[0]["used"]], events
+    return quadtree_np[: next_free_np[0]], events
 
 
 class TestQuadtree(unittest.TestCase):
