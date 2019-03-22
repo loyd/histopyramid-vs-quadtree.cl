@@ -1,5 +1,5 @@
 PYTHON := python3
-TESTS = src/quadtree.py src/hystopyramid.py
+TESTS = src/quadtree.py src/histopyramid.py
 MAIN = src/main.py
 
 .PHONY: test

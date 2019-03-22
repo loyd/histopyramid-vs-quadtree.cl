@@ -5,7 +5,7 @@ import textwrap
 
 import numpy as np
 
-import hystopyramid
+import histopyramid
 import quadtree
 
 
@@ -64,11 +64,11 @@ def run_once(algo, depth, npoints, ntimes, warmup, verbose):
 
 
 def run_through_npoints(
-    depth, npoints_r, ntimes, warmup, run_hystopyramid, run_quadtree
+    depth, npoints_r, ntimes, warmup, run_histopyramid, run_quadtree
 ):
     header = "Depth\tPoints"
 
-    if run_hystopyramid:
+    if run_histopyramid:
         header += "\tH net\tH total"
 
     if run_quadtree:
@@ -81,15 +81,15 @@ def run_through_npoints(
         npoints_r,
         ntimes,
         warmup,
-        run_hystopyramid,
+        run_histopyramid,
         run_quadtree,
     )
 
 
-def run_through_depth(npoints, depth_r, ntimes, warmup, run_hystopyramid, run_quadtree):
+def run_through_depth(npoints, depth_r, ntimes, warmup, run_histopyramid, run_quadtree):
     header = "Depth\tPoints"
 
-    if run_hystopyramid:
+    if run_histopyramid:
         header += "\tH net\tH total"
 
     if run_quadtree:
@@ -102,17 +102,17 @@ def run_through_depth(npoints, depth_r, ntimes, warmup, run_hystopyramid, run_qu
         range(npoints, npoints + 1),
         ntimes,
         warmup,
-        run_hystopyramid,
+        run_histopyramid,
         run_quadtree,
     )
 
 
-def run_grid(depth_r, npoints_r, ntimes, warmup, run_hystopyramid, run_quadtree):
+def run_grid(depth_r, npoints_r, ntimes, warmup, run_histopyramid, run_quadtree):
     for depth in depth_r:
         for npoints in npoints_r:
-            if run_hystopyramid:
+            if run_histopyramid:
                 hp_spent_net, hp_spent_total = run_once(
-                    hystopyramid, depth, npoints, ntimes, warmup, False
+                    histopyramid, depth, npoints, ntimes, warmup, False
                 )
                 hp_spent_net = hp_spent_net / (ntimes - warmup)
                 hp_spent_total = hp_spent_total / (ntimes - warmup)
@@ -124,7 +124,7 @@ def run_grid(depth_r, npoints_r, ntimes, warmup, run_hystopyramid, run_quadtree)
                 qt_spent_net = qt_spent_net / (ntimes - warmup)
                 qt_spent_total = qt_spent_total / (ntimes - warmup)
 
-            if run_hystopyramid and run_quadtree:
+            if run_histopyramid and run_quadtree:
                 print(
                     "%d\t%d\t%s\t%s\t%s\t%s"
                     % (
@@ -136,7 +136,7 @@ def run_grid(depth_r, npoints_r, ntimes, warmup, run_hystopyramid, run_quadtree)
                         fmt(qt_spent_total),
                     )
                 )
-            elif run_hystopyramid:
+            elif run_histopyramid:
                 print(
                     "%d\t%d\t%s\t%s"
                     % (depth, npoints, fmt(hp_spent_net), fmt(hp_spent_total))
@@ -148,16 +148,16 @@ def run_grid(depth_r, npoints_r, ntimes, warmup, run_hystopyramid, run_quadtree)
                 )
 
 
-def run_sample(depth, npoints, ntimes, warmup, run_hystopyramid, run_quadtree):
-    if run_hystopyramid:
-        print("## Hystopyramid")
+def run_sample(depth, npoints, ntimes, warmup, run_histopyramid, run_quadtree):
+    if run_histopyramid:
+        print("## Histopyramid")
         spent_net, spent_total = run_once(
-            hystopyramid, depth, npoints, ntimes, warmup, True
+            histopyramid, depth, npoints, ntimes, warmup, True
         )
         print("H spent net:   %s ms" % fmt(spent_net))
         print("H spent total: %s ms" % fmt(spent_total))
 
-    if run_hystopyramid and run_quadtree:
+    if run_histopyramid and run_quadtree:
         print("\n")
 
     if run_quadtree:
@@ -193,7 +193,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=textwrap.dedent(
             """\
-            Comparison between quadtrees and hystopyramids
+            Comparison between quadtrees and histopyramids
             ----------------------------------------------
             Run and show details:
                 %(prog)s -q -h -d 6 -n 5000
@@ -208,7 +208,7 @@ def main():
     )
 
     parser.add_argument("-q", "--quadtree", action="store_true")
-    parser.add_argument("-p", "--hystopyramid", action="store_true")
+    parser.add_argument("-p", "--histopyramid", action="store_true")
     parser.add_argument("-d", "--depth", type=str, required=True)
     parser.add_argument("-n", "--points", type=str, required=True)
     parser.add_argument("-i", "--iters", type=int, default=10)
@@ -219,7 +219,7 @@ def main():
     depth = parse_var(args.depth)
     points = parse_var(args.points)
 
-    assert args.quadtree or args.hystopyramid, "You must add -q or/and -h"
+    assert args.quadtree or args.histopyramid, "You must add -q or/and -h"
     assert depth, "Depth must be scalar or valid range"
     assert points, "Point count must be scalar or valid range"
     assert not (
@@ -230,15 +230,15 @@ def main():
 
     if isinstance(depth, range):
         run_through_depth(
-            points, depth, args.iters, args.warmup, args.hystopyramid, args.quadtree
+            points, depth, args.iters, args.warmup, args.histopyramid, args.quadtree
         )
     elif isinstance(points, range):
         run_through_npoints(
-            depth, points, args.iters, args.warmup, args.hystopyramid, args.quadtree
+            depth, points, args.iters, args.warmup, args.histopyramid, args.quadtree
         )
     else:
         run_sample(
-            depth, points, args.iters, args.warmup, args.hystopyramid, args.quadtree
+            depth, points, args.iters, args.warmup, args.histopyramid, args.quadtree
         )
 
 

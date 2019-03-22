@@ -10,8 +10,8 @@ from pyopencl import cltypes
 
 DIRNAME = path.abspath(path.dirname(__file__))
 
-with open(path.join(DIRNAME, "hystopyramid.cl"), "r") as file:
-    HYSTOPYRAMID_CL = file.read()
+with open(path.join(DIRNAME, "histopyramid.cl"), "r") as file:
+    HISTOPYRAMID_CL = file.read()
 
 
 CELL_NBYTES = cltypes.float4.itemsize
@@ -49,7 +49,7 @@ def run(depth, bbox, points, ntimes=2, warmup=1):
     pyramid_np = np.zeros(pyramid_ncells, cltypes.float4)
 
     ctx = cl.create_some_context(False)
-    prg = cl.Program(ctx, HYSTOPYRAMID_CL).build(["-cl-std=CL2.0"])
+    prg = cl.Program(ctx, HISTOPYRAMID_CL).build(["-cl-std=CL2.0"])
 
     make_grid_krn = prg.make_grid
     make_level_krn = prg.make_level
@@ -95,7 +95,7 @@ def run(depth, bbox, points, ntimes=2, warmup=1):
     return [lvl[0] for lvl in levels], events
 
 
-class TestHystopyramid(unittest.TestCase):
+class TestHistopyramid(unittest.TestCase):
     def test_single(self):
         zero = float4(0.0, 0.0, 0.0, 0.0)
 

@@ -1,4 +1,4 @@
-# Quadtrees versus hystopyramids in OpenCL
+# Quadtrees versus histopyramids in OpenCL
 
 ## Usage
 
@@ -8,7 +8,7 @@ python3 src/main.py -h
 ```
 usage: main.py [-h] [-q] [-p] -d DEPTH -n POINTS [-i ITERS] [-w WARMUP]
 
-Comparison between quadtrees and hystopyramids
+Comparison between quadtrees and histopyramids
 ----------------------------------------------
 Run and show details:
     main.py -q -h -d 6 -n 5000
@@ -22,7 +22,7 @@ Run through many point counts:
 optional arguments:
   -h, --help            show this help message and exit
   -q, --quadtree
-  -p, --hystopyramid
+  -p, --histopyramid
   -d DEPTH, --depth DEPTH
   -n POINTS, --points POINTS
   -i ITERS, --iters ITERS
